@@ -118,8 +118,11 @@ app.post('/send-notification', async (req, res) => {
     }
 });
 
-app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
-});
+// Only listen if not running on Vercel (Vercel exports the app)
+if (!process.env.VERCEL) {
+    app.listen(port, () => {
+        console.log(`Server is running on port ${port}`);
+    });
+}
 
 export default app;
