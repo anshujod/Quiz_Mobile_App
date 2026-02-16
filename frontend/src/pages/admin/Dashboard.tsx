@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Link } from 'react-router-dom';
-import { PlusCircle, Edit3, Trash2, FileText, CheckCircle, Search, LayoutDashboard } from 'lucide-react';
+import { PlusCircle, Edit3, Trash2, FileText, CheckCircle, Search, LayoutDashboard, Send, Bell } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface Quiz {
@@ -16,6 +16,37 @@ export default function AdminDashboard() {
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+
+    // Notification State
+    const [notifTitle, setNotifTitle] = useState('');
+    const [notifMessage, setNotifMessage] = useState('');
+    const [sendingNotif, setSendingNotif] = useState(false);
+
+    const sendNotification = async () => {
+        if (!notifTitle || !notifMessage) return;
+        setSendingNotif(true);
+        try {
+            const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+            const response = await fetch(`${backendUrl}/send-notification`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: notifTitle, message: notifMessage })
+            });
+
+            if (response.ok) {
+                alert('Notification sent successfully!');
+                setNotifTitle('');
+                setNotifMessage('');
+            } else {
+                alert('Failed to send notification.');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Error sending notification.');
+        } finally {
+            setSendingNotif(false);
+        }
+    };
 
     useEffect(() => {
         fetchQuizzes();
@@ -228,6 +259,56 @@ export default function AdminDashboard() {
                     </table>
                 </div>
             </div>
+            {/* Push Notifications */}
+            <div className="bg-white/5 backdrop-blur-md rounded-3xl border border-white/10 overflow-hidden shadow-xl p-6">
+                <div className="flex items-center gap-3 mb-6 border-b border-white/10 pb-4">
+                    <div className="p-2 bg-purple-500/20 rounded-lg border border-purple-500/30">
+                        <Bell className="h-5 w-5 text-purple-400" />
+                    </div>
+                    <h2 className="text-xl font-bold text-white">Push Notifications</h2>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-400 mb-2">Notification Title</label>
+                        <input
+                            type="text"
+                            value={notifTitle}
+                            onChange={(e) => setNotifTitle(e.target.value)}
+                            className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                            placeholder="e.g. New Quiz Available!"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-400 mb-2">Message</label>
+                        <input
+                            type="text"
+                            value={notifMessage}
+                            onChange={(e) => setNotifMessage(e.target.value)}
+                            className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                            placeholder="Brief description..."
+                        />
+                    </div>
+                </div>
+
+                <div className="mt-6 flex justify-end">
+                    <button
+                        onClick={sendNotification}
+                        disabled={sendingNotif || !notifTitle || !notifMessage}
+                        className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold rounded-xl shadow-lg hover:shadow-purple-500/25 transition-all transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                    >
+                        {sendingNotif ? (
+                            <>Sending...</>
+                        ) : (
+                            <>
+                                <Send className="h-4 w-4 mr-2" />
+                                Send to All Users
+                            </>
+                        )}
+                    </button>
+                </div>
+            </div>
+
         </div>
     );
 }
