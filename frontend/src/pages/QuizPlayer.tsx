@@ -272,11 +272,20 @@ export default function QuizPlayer() {
         );
     }
 
-    const getEmbedUrl = (url: string) => {
+    const getYouTubeVideoId = (url: string): string | null => {
         const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
         const match = url.match(regExp);
-        const id = (match && match[2].length === 11) ? match[2] : null;
+        return (match && match[2].length === 11) ? match[2] : null;
+    };
+
+    const getEmbedUrl = (url: string) => {
+        const id = getYouTubeVideoId(url);
         return id ? `https://www.youtube.com/embed/${id}` : null;
+    };
+
+    const getYouTubeThumbnail = (url: string): string | null => {
+        const id = getYouTubeVideoId(url);
+        return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null;
     };
 
     if (showVideo && currentQuestion.video_url) {
@@ -379,19 +388,24 @@ export default function QuizPlayer() {
                                 {currentQuestion.text}
                             </h2>
 
-                            {currentQuestion.image_url && (
-                                <div className="mb-8 rounded-2xl overflow-hidden border border-white/10 bg-black/40 relative z-10 group">
-                                    <img
-                                        src={currentQuestion.image_url}
-                                        alt={`Question ${currentQuestionIndex + 1}`}
-                                        className="w-full h-auto object-contain max-h-[400px] hover:scale-[1.02] transition-transform duration-500"
-                                        onError={(e) => {
-                                            console.error('Failed to load image:', currentQuestion.image_url);
-                                            e.currentTarget.style.display = 'none';
-                                        }}
-                                    />
-                                </div>
-                            )}
+                            {(() => {
+                                const displayImageUrl = currentQuestion.video_url
+                                    ? getYouTubeThumbnail(currentQuestion.video_url)
+                                    : currentQuestion.image_url;
+                                return displayImageUrl ? (
+                                    <div className="mb-8 rounded-2xl overflow-hidden border border-white/10 bg-black/40 relative z-10 group">
+                                        <img
+                                            src={displayImageUrl}
+                                            alt={`Question ${currentQuestionIndex + 1}`}
+                                            className="w-full h-auto object-contain max-h-[400px] hover:scale-[1.02] transition-transform duration-500"
+                                            onError={(e) => {
+                                                console.error('Failed to load image:', displayImageUrl);
+                                                e.currentTarget.style.display = 'none';
+                                            }}
+                                        />
+                                    </div>
+                                ) : null;
+                            })()}
 
                             <div className="space-y-4 relative z-10">
                                 {currentQuestion.options.map((option) => {
@@ -422,8 +436,8 @@ export default function QuizPlayer() {
                                         >
                                             <span className="relative z-10 flex items-center">
                                                 <span className={`w-8 h-8 rounded-full flex items-center justify-center mr-4 text-sm font-bold transition-colors ${isAnswerLocked && option.id === selectedOptionId
-                                                        ? (option.is_correct ? 'bg-green-500 text-white' : 'bg-red-500 text-white')
-                                                        : 'bg-white/10 text-slate-400 group-hover:bg-indigo-500 group-hover:text-white'
+                                                    ? (option.is_correct ? 'bg-green-500 text-white' : 'bg-red-500 text-white')
+                                                    : 'bg-white/10 text-slate-400 group-hover:bg-indigo-500 group-hover:text-white'
                                                     }`}>
                                                     {option.text.charAt(0).toUpperCase()}
                                                 </span>
