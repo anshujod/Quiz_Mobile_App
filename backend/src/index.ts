@@ -12,15 +12,17 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Initialize Supabase Client
+// Initialize Supabase Client (lazy to avoid crash when env vars are missing)
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseServiceKey) {
-    console.warn('Missing Supabase URL or Service Role Key. Push notifications will not work.');
-}
+let supabase: ReturnType<typeof createClient> | null = null;
 
-const supabase = createClient(supabaseUrl || '', supabaseServiceKey || '');
+if (supabaseUrl && supabaseServiceKey) {
+    supabase = createClient(supabaseUrl, supabaseServiceKey);
+} else {
+    console.warn('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY. Push notifications will not work.');
+}
 
 // Configure Web Push
 const publicVapidKey = process.env.VITE_VAPID_PUBLIC_KEY;
@@ -42,6 +44,11 @@ app.get('/', (req, res) => {
 
 // Endpoint to save subscription
 app.post('/subscribe', async (req, res) => {
+    if (!supabase) {
+        res.status(503).json({ error: 'Push notifications are not configured' });
+        return;
+    }
+
     const { subscription, userId } = req.body;
 
     if (!subscription) {
@@ -55,7 +62,7 @@ app.post('/subscribe', async (req, res) => {
             .upsert({
                 user_id: userId || null,
                 subscription: subscription
-            }, { onConflict: 'subscription' });
+            } as any, { onConflict: 'subscription' });
 
         if (error) throw error;
 
@@ -68,6 +75,11 @@ app.post('/subscribe', async (req, res) => {
 
 // Endpoint to send notification (Admin only - ideally protected)
 app.post('/send-notification', async (req, res) => {
+    if (!supabase) {
+        res.status(503).json({ error: 'Push notifications are not configured' });
+        return;
+    }
+
     const { title, message } = req.body;
 
     if (!title || !message) {
@@ -77,7 +89,7 @@ app.post('/send-notification', async (req, res) => {
 
     try {
         // Fetch all subscriptions
-        const { data: subscriptions, error } = await supabase
+        const { data: subscriptions, error } = await (supabase as any)
             .from('push_subscriptions')
             .select('subscription');
 
@@ -91,14 +103,14 @@ app.post('/send-notification', async (req, res) => {
         const payload = JSON.stringify({ title, body: message });
 
         // Send notifications in parallel
-        const promises = subscriptions.map(sub =>
+        const promises = subscriptions.map((sub: any) =>
             webpush.sendNotification(sub.subscription as webpush.PushSubscription, payload)
                 .catch((err: any) => {
                     console.error('Error sending notification:', err);
                     if (err.statusCode === 410 || err.statusCode === 404) {
                         // Subscription has expired or is no longer valid, remove it
                         console.log('Removing expired subscription...');
-                        supabase
+                        supabase!
                             .from('push_subscriptions')
                             .delete()
                             .match({ subscription: sub.subscription })
