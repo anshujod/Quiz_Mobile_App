@@ -33,16 +33,22 @@ export default function AdminDashboard() {
                 body: JSON.stringify({ title: notifTitle, message: notifMessage })
             });
 
+            const data = await response.json();
+
             if (response.ok) {
-                alert('Notification sent successfully!');
-                setNotifTitle('');
-                setNotifMessage('');
+                const detail = `Sent: ${data.sent || 0}, Failed: ${data.failed || 0}, Total: ${data.total || 0}`;
+                const errorInfo = data.errors ? `\n\nErrors:\n${data.errors.join('\n')}` : '';
+                alert(`Notification result:\n${detail}${errorInfo}`);
+                if (data.sent > 0) {
+                    setNotifTitle('');
+                    setNotifMessage('');
+                }
             } else {
-                alert('Failed to send notification.');
+                alert(`Failed: ${data.error || 'Unknown error'}${data.details ? '\n' + data.details : ''}`);
             }
         } catch (e) {
             console.error(e);
-            alert('Error sending notification.');
+            alert('Error sending notification. Check console for details.');
         } finally {
             setSendingNotif(false);
         }

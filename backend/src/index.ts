@@ -84,6 +84,11 @@ app.post('/send-notification', async (req, res) => {
         return;
     }
 
+    if (!publicVapidKey || !privateVapidKey) {
+        res.status(503).json({ error: 'VAPID keys are not configured on the server' });
+        return;
+    }
+
     const { title, message } = req.body;
 
     if (!title || !message) {
@@ -95,42 +100,61 @@ app.post('/send-notification', async (req, res) => {
         // Fetch all subscriptions
         const { data: subscriptions, error } = await (supabase as any)
             .from('push_subscriptions')
-            .select('subscription');
+            .select('id, subscription');
 
         if (error) throw error;
 
         if (!subscriptions || subscriptions.length === 0) {
-            res.status(200).json({ message: 'No subscriptions found' });
+            res.status(200).json({ message: 'No subscriptions found', sent: 0, failed: 0 });
             return;
         }
 
         const payload = JSON.stringify({ title, body: message });
 
+        let sent = 0;
+        let failed = 0;
+        const errors: string[] = [];
+        const expiredIds: string[] = [];
+
         // Send notifications in parallel
-        const promises = subscriptions.map((sub: any) =>
-            webpush.sendNotification(sub.subscription as webpush.PushSubscription, payload)
-                .catch((err: any) => {
-                    console.error('Error sending notification:', err);
-                    if (err.statusCode === 410 || err.statusCode === 404) {
-                        // Subscription has expired or is no longer valid, remove it
-                        console.log('Removing expired subscription...');
-                        supabase!
-                            .from('push_subscriptions')
-                            .delete()
-                            .match({ subscription: sub.subscription })
-                            .then(({ error: deleteError }) => {
-                                if (deleteError) console.error('Error deleting expired subscription:', deleteError);
-                            });
-                    }
-                })
-        );
+        const promises = subscriptions.map(async (sub: any) => {
+            try {
+                await webpush.sendNotification(sub.subscription as webpush.PushSubscription, payload);
+                sent++;
+            } catch (err: any) {
+                failed++;
+                const errMsg = `Sub ${sub.id}: ${err.statusCode || 'unknown'} - ${err.body || err.message}`;
+                errors.push(errMsg);
+                console.error('Error sending notification:', errMsg);
+
+                if (err.statusCode === 410 || err.statusCode === 404) {
+                    expiredIds.push(sub.id);
+                }
+            }
+        });
 
         await Promise.all(promises);
 
-        res.status(200).json({ message: `Attempted to send to ${subscriptions.length} subscribers` });
+        // Clean up expired subscriptions
+        if (expiredIds.length > 0) {
+            const { error: deleteError } = await supabase!
+                .from('push_subscriptions')
+                .delete()
+                .in('id', expiredIds);
+            if (deleteError) console.error('Error deleting expired subscriptions:', deleteError);
+        }
+
+        res.status(200).json({
+            message: `Sent: ${sent}, Failed: ${failed}, Total: ${subscriptions.length}`,
+            sent,
+            failed,
+            total: subscriptions.length,
+            errors: errors.length > 0 ? errors : undefined,
+            expiredRemoved: expiredIds.length
+        });
     } catch (error: any) {
         console.error('Error sending notifications:', error);
-        res.status(500).json({ error: 'Failed to send notifications' });
+        res.status(500).json({ error: 'Failed to send notifications', details: error.message });
     }
 });
 
