@@ -4,10 +4,7 @@ import { clientsClaim } from 'workbox-core'
 cleanupOutdatedCaches()
 
 // self.__WB_MANIFEST is injected by vite-plugin-pwa during build
-// In dev mode it may not exist, so guard it
-if (typeof self.__WB_MANIFEST !== 'undefined') {
-    precacheAndRoute(self.__WB_MANIFEST)
-}
+precacheAndRoute(self.__WB_MANIFEST)
 
 self.skipWaiting()
 clientsClaim()
