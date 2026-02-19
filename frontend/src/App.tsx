@@ -7,6 +7,7 @@ import Layout from './components/Layout';
 import Home from './pages/Home';
 import AdminDashboard from './pages/admin/Dashboard';
 import CreateQuiz from './pages/admin/CreateQuiz';
+import AdminUsers from './pages/admin/Users';
 import QuizPlayer from './pages/QuizPlayer';
 import UserHistory from './pages/UserHistory';
 import Leaderboard from './pages/Leaderboard';
@@ -51,6 +52,11 @@ function AppRoutes() {
         <Route path="admin/create-quiz" element={
           <ProtectedRoute allowedRoles={['admin']}>
             <CreateQuiz />
+          </ProtectedRoute>
+        } />
+        <Route path="admin/users" element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminUsers />
           </ProtectedRoute>
         } />
       </Route>

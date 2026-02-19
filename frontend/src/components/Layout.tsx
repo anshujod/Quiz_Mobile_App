@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LogOut, Home, PlusCircle, Trophy, User as UserIcon, LayoutDashboard, Menu, X, BarChart3 } from 'lucide-react';
+import { LogOut, Home, PlusCircle, Trophy, User as UserIcon, LayoutDashboard, Menu, X, BarChart3, Users } from 'lucide-react';
 
 export default function Layout() {
     const { user, profile, signOut } = useAuth();
@@ -22,7 +22,8 @@ export default function Layout() {
     if (profile?.role === 'admin') {
         navItems.push(
             { name: 'Admin Dashboard', path: '/admin', icon: LayoutDashboard, roles: ['admin'] },
-            { name: 'Create Quiz', path: '/admin/create-quiz', icon: PlusCircle, roles: ['admin'] }
+            { name: 'Create Quiz', path: '/admin/create-quiz', icon: PlusCircle, roles: ['admin'] },
+            { name: 'Users', path: '/admin/users', icon: Users, roles: ['admin'] }
         );
     }
 
