@@ -89,7 +89,7 @@ app.post('/send-notification', async (req, res) => {
         return;
     }
 
-    const { title, message } = req.body;
+    const { title, message, image } = req.body;
 
     if (!title || !message) {
         res.status(400).json({ error: 'Title and message are required' });
@@ -109,7 +109,9 @@ app.post('/send-notification', async (req, res) => {
             return;
         }
 
-        const payload = JSON.stringify({ title, body: message });
+        const payloadObj: any = { title, body: message };
+        if (image) payloadObj.image = image;
+        const payload = JSON.stringify(payloadObj);
 
         let sent = 0;
         let failed = 0;

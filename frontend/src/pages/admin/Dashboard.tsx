@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Link } from 'react-router-dom';
-import { PlusCircle, Edit3, Trash2, FileText, CheckCircle, Search, LayoutDashboard, Send, Bell } from 'lucide-react';
+import { PlusCircle, Edit3, Trash2, FileText, CheckCircle, Search, LayoutDashboard, Send, Bell, Image as ImageIcon, UploadCloud, X, Link as LinkIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
+
+const NOTIFICATION_STORAGE_BUCKET = 'question-images-v2';
 
 interface Quiz {
     id: string;
@@ -20,17 +22,80 @@ export default function AdminDashboard() {
     // Notification State
     const [notifTitle, setNotifTitle] = useState('');
     const [notifMessage, setNotifMessage] = useState('');
+    const [notifImage, setNotifImage] = useState('');
     const [sendingNotif, setSendingNotif] = useState(false);
+
+    // Image upload state
+    const [imageMode, setImageMode] = useState<'upload' | 'url'>('upload');
+    const [notifImageFile, setNotifImageFile] = useState<File | null>(null);
+    const [notifImagePreview, setNotifImagePreview] = useState('');
+    const [notifImageUploading, setNotifImageUploading] = useState(false);
+    const imageInputRef = useRef<HTMLInputElement | null>(null);
+
+    const uploadNotifImage = async (file: File): Promise<string | null> => {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `notif_${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+        const filePath = `notifications/${fileName}`;
+
+        setNotifImageUploading(true);
+        try {
+            const { error: uploadError } = await supabase.storage
+                .from(NOTIFICATION_STORAGE_BUCKET)
+                .upload(filePath, file);
+
+            if (uploadError) {
+                console.error('Error uploading notification image:', uploadError);
+                alert(`Error uploading image: ${uploadError.message}`);
+                return null;
+            }
+
+            const { data } = supabase.storage
+                .from(NOTIFICATION_STORAGE_BUCKET)
+                .getPublicUrl(filePath);
+
+            return data?.publicUrl || null;
+        } finally {
+            setNotifImageUploading(false);
+        }
+    };
+
+    const handleNotifImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+        const file = e.target.files[0];
+        setNotifImageFile(file);
+        setNotifImagePreview(URL.createObjectURL(file));
+        setNotifImage(''); // clear URL mode
+    };
+
+    const clearNotifImage = () => {
+        setNotifImageFile(null);
+        setNotifImagePreview('');
+        setNotifImage('');
+        if (imageInputRef.current) imageInputRef.current.value = '';
+    };
 
     const sendNotification = async () => {
         if (!notifTitle || !notifMessage) return;
         setSendingNotif(true);
         try {
+            let imageUrl = notifImage || undefined;
+
+            // If a file was selected, upload it first
+            if (imageMode === 'upload' && notifImageFile) {
+                const uploadedUrl = await uploadNotifImage(notifImageFile);
+                if (uploadedUrl) {
+                    imageUrl = uploadedUrl;
+                } else {
+                    setSendingNotif(false);
+                    return; // upload failed, don't send
+                }
+            }
+
             const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
             const response = await fetch(`${backendUrl}/send-notification`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: notifTitle, message: notifMessage })
+                body: JSON.stringify({ title: notifTitle, message: notifMessage, image: imageUrl })
             });
 
             const data = await response.json();
@@ -42,6 +107,7 @@ export default function AdminDashboard() {
                 if (data.sent > 0) {
                     setNotifTitle('');
                     setNotifMessage('');
+                    clearNotifImage();
                 }
             } else {
                 alert(`Failed: ${data.error || 'Unknown error'}${data.details ? '\n' + data.details : ''}`);
@@ -297,10 +363,130 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
+                {/* Image Section */}
+                <div className="mt-6">
+                    <label className="block text-sm font-medium text-slate-400 mb-3 flex items-center gap-2">
+                        <ImageIcon className="h-4 w-4" />
+                        Notification Image (optional)
+                    </label>
+
+                    {/* Mode Tabs */}
+                    <div className="flex gap-2 mb-4">
+                        <button
+                            type="button"
+                            onClick={() => { setImageMode('upload'); setNotifImage(''); }}
+                            className={`px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-2 transition-all ${imageMode === 'upload'
+                                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                                    : 'bg-white/5 text-slate-400 border border-white/10 hover:bg-white/10'
+                                }`}
+                        >
+                            <UploadCloud className="h-4 w-4" />
+                            Upload Image
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => { setImageMode('url'); clearNotifImage(); }}
+                            className={`px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-2 transition-all ${imageMode === 'url'
+                                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                                    : 'bg-white/5 text-slate-400 border border-white/10 hover:bg-white/10'
+                                }`}
+                        >
+                            <LinkIcon className="h-4 w-4" />
+                            Paste URL
+                        </button>
+                    </div>
+
+                    {/* Upload Mode */}
+                    {imageMode === 'upload' && (
+                        <div>
+                            <input
+                                type="file"
+                                ref={imageInputRef}
+                                className="hidden"
+                                accept="image/*"
+                                onChange={handleNotifImageSelect}
+                            />
+                            {!notifImageFile ? (
+                                <button
+                                    type="button"
+                                    onClick={() => imageInputRef.current?.click()}
+                                    className="w-full border-2 border-dashed border-white/10 hover:border-purple-500/40 rounded-xl p-8 flex flex-col items-center justify-center gap-3 transition-all hover:bg-white/5 cursor-pointer group"
+                                >
+                                    <div className="p-3 bg-purple-500/10 rounded-xl group-hover:bg-purple-500/20 transition-colors">
+                                        <UploadCloud className="h-8 w-8 text-purple-400" />
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-sm font-medium text-white">Click to upload an image</p>
+                                        <p className="text-xs text-slate-500 mt-1">PNG, JPG, GIF, WEBP</p>
+                                    </div>
+                                </button>
+                            ) : (
+                                <div className="relative rounded-xl overflow-hidden border border-white/10 bg-black/40 max-w-sm">
+                                    <img
+                                        src={notifImagePreview}
+                                        alt="Notification preview"
+                                        className="w-full h-auto max-h-48 object-contain"
+                                    />
+                                    <div className="absolute top-2 right-2 flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => imageInputRef.current?.click()}
+                                            className="p-1.5 bg-black/60 hover:bg-black/80 rounded-lg text-white transition-colors backdrop-blur-sm"
+                                            title="Change image"
+                                        >
+                                            <UploadCloud className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={clearNotifImage}
+                                            className="p-1.5 bg-red-500/60 hover:bg-red-500/80 rounded-lg text-white transition-colors backdrop-blur-sm"
+                                            title="Remove image"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                    <div className="px-3 py-2 bg-black/40 text-xs text-slate-400 truncate">
+                                        {notifImageFile.name}
+                                    </div>
+                                </div>
+                            )}
+                            {notifImageUploading && (
+                                <div className="mt-3 flex items-center gap-2 text-sm text-purple-300">
+                                    <div className="h-4 w-4 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+                                    Uploading image...
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* URL Mode */}
+                    {imageMode === 'url' && (
+                        <div>
+                            <input
+                                type="url"
+                                value={notifImage}
+                                onChange={(e) => setNotifImage(e.target.value)}
+                                className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                                placeholder="https://example.com/image.png"
+                            />
+                            {notifImage && (
+                                <div className="mt-3 rounded-xl overflow-hidden border border-white/10 bg-black/40 max-w-sm">
+                                    <img
+                                        src={notifImage}
+                                        alt="Notification preview"
+                                        className="w-full h-auto max-h-48 object-contain"
+                                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+
                 <div className="mt-6 flex justify-end">
                     <button
                         onClick={sendNotification}
-                        disabled={sendingNotif || !notifTitle || !notifMessage}
+                        disabled={sendingNotif || notifImageUploading || !notifTitle || !notifMessage}
                         className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold rounded-xl shadow-lg hover:shadow-purple-500/25 transition-all transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                     >
                         {sendingNotif ? (

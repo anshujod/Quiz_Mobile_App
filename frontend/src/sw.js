@@ -13,6 +13,7 @@ self.addEventListener('push', (event) => {
     let title = 'Quiz App Notification';
     let body = 'You have a new message!';
     let icon = '/vite.svg';
+    let image = undefined;
 
     if (event.data) {
         try {
@@ -20,6 +21,7 @@ self.addEventListener('push', (event) => {
             title = data.title || title;
             body = data.body || body;
             icon = data.icon || icon;
+            image = data.image || undefined;
         } catch (e) {
             body = event.data.text();
         }
@@ -29,6 +31,7 @@ self.addEventListener('push', (event) => {
         body,
         icon,
         badge: icon,
+        image,
         vibrate: [100, 50, 100],
         data: {
             dateOfArrival: Date.now(),
