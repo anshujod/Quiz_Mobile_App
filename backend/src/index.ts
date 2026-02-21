@@ -109,7 +109,17 @@ app.post('/send-notification', async (req, res) => {
             return;
         }
 
-        const payloadObj: any = { title, body: message };
+        // Insert notification into the database
+        const { error: insertError } = await (supabase as any)
+            .from('notifications')
+            .insert([{ title, message, image }]);
+
+        if (insertError) {
+            console.error('Error saving notification to DB:', insertError);
+            // We continue sending even if saving fails, or we could abort. Let's log it.
+        }
+
+        const payloadObj: any = { title, body: message, data: { url: '/notifications' } };
         if (image) payloadObj.image = image;
         const payload = JSON.stringify(payloadObj);
 

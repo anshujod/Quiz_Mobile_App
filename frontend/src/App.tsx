@@ -11,6 +11,7 @@ import AdminUsers from './pages/admin/Users';
 import QuizPlayer from './pages/QuizPlayer';
 import UserHistory from './pages/UserHistory';
 import Leaderboard from './pages/Leaderboard';
+import Notifications from './pages/Notifications';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: ('admin' | 'user')[] }) => {
@@ -40,6 +41,7 @@ function AppRoutes() {
         <Route path="quiz/:quizId" element={<QuizPlayer />} />
         <Route path="history" element={<UserHistory />} />
         <Route path="leaderboard" element={<Leaderboard />} />
+        <Route path="notifications" element={<Notifications />} />
 
 
 

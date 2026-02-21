@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LogOut, Home, PlusCircle, Trophy, User as UserIcon, LayoutDashboard, Menu, X, BarChart3, Users } from 'lucide-react';
+import { LogOut, Home, PlusCircle, Trophy, User as UserIcon, LayoutDashboard, Menu, X, BarChart3, Users, Bell } from 'lucide-react';
 
 export default function Layout() {
     const { user, profile, signOut } = useAuth();
@@ -17,6 +17,7 @@ export default function Layout() {
         { name: 'Home', path: '/', icon: Home, roles: ['user', 'admin'] },
         { name: 'Leaderboard', path: '/leaderboard', icon: BarChart3, roles: ['user', 'admin'] },
         { name: 'My Results', path: '/history', icon: Trophy, roles: ['user', 'admin'] },
+        { name: 'Notifications', path: '/notifications', icon: Bell, roles: ['user', 'admin'] },
     ];
 
     if (profile?.role === 'admin') {

@@ -15,6 +15,8 @@ self.addEventListener('push', (event) => {
     let icon = '/vite.svg';
     let image = undefined;
 
+    let url = '/notifications';
+
     if (event.data) {
         try {
             const data = event.data.json();
@@ -22,6 +24,9 @@ self.addEventListener('push', (event) => {
             body = data.body || body;
             icon = data.icon || icon;
             image = data.image || undefined;
+            if (data.data && data.data.url) {
+                url = data.data.url;
+            }
         } catch (e) {
             body = event.data.text();
         }
@@ -35,7 +40,8 @@ self.addEventListener('push', (event) => {
         vibrate: [100, 50, 100],
         data: {
             dateOfArrival: Date.now(),
-            primaryKey: 1
+            primaryKey: 1,
+            url: url
         }
     };
 
@@ -46,18 +52,29 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
+    const urlToOpen = new URL(event.notification.data?.url || '/notifications', self.location.origin).href;
+
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-            if (clientList.length > 0) {
-                let client = clientList[0];
-                for (let i = 0; i < clientList.length; i++) {
-                    if (clientList[i].focused) {
-                        client = clientList[i];
-                    }
+            let matchingClient = null;
+
+            for (let i = 0; i < clientList.length; i++) {
+                const client = clientList[i];
+                if (client.url === urlToOpen) {
+                    matchingClient = client;
+                    break;
                 }
-                return client.focus();
             }
-            return clients.openWindow('/');
+
+            if (matchingClient) {
+                return matchingClient.focus();
+            } else if (clientList.length > 0) {
+                let focusedClient = clientList.find(c => c.focused);
+                let clientToUse = focusedClient || clientList[0];
+                return clientToUse.navigate(urlToOpen).then(client => client?.focus());
+            } else {
+                return clients.openWindow(urlToOpen);
+            }
         })
     );
 });
