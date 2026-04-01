@@ -1,0 +1,10 @@
+{
+  // Explicit path helps editors that don't resolve package-based extends in monorepos
+  "extends": "./node_modules/expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "jsx": "react-native",
+    "esModuleInterop": true,
+    "allowJs": true
+  }
+}
